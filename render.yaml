@@ -1,0 +1,4 @@
+services:
+  - name: app
+    buildCommand: npm install
+    startCommand: npm start

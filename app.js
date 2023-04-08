@@ -1,59 +1,119 @@
 const express = require("express");
+const axios = require('axios');
+const schedule = require('node-schedule');
+const TelegramBot = require('node-telegram-bot-api');
+const cors = require('cors');
+
 const app = express();
 const port = process.env.PORT || 3001;
+const TELEGRAM_BOT_TOKEN = '6202001281:AAEkc3Zo2yRauBgJm6QlS-HDhnbnFafZszI';
+const NEWS_API_KEY = '4d547f2d7ef549c9bb849833e790d744';
 
-app.get("/", (req, res) => res.type('html').send(html));
+app.use(express.json());
+app.use(express.text());
+app.use(cors());
 
-app.listen(port, () => console.log(`Example app listening on port ${port}!`));
+const getRandomIndex = (arr) => {
+  // get random index value
+  return Math.floor(Math.random() * arr.length);
+}
 
 
-const html = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Hello from Render!</title>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-    <script>
-      setTimeout(() => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          disableForReducedMotion: true
-        });
-      }, 500);
-    </script>
-    <style>
-      @import url("https://p.typekit.net/p.css?s=1&k=vnd5zic&ht=tk&f=39475.39476.39477.39478.39479.39480.39481.39482&a=18673890&app=typekit&e=css");
-      @font-face {
-        font-family: "neo-sans";
-        src: url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"), url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"), url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
-        font-style: normal;
-        font-weight: 700;
-      }
-      html {
-        font-family: neo-sans;
-        font-weight: 700;
-        font-size: calc(62rem / 16);
-      }
-      body {
-        background: white;
-      }
-      section {
-        border-radius: 1em;
-        padding: 1em;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        margin-right: -50%;
-        transform: translate(-50%, -50%);
-      }
-    </style>
-  </head>
-  <body>
-    <section>
-      Hello from Render!
-    </section>
-  </body>
-</html>
-`
+const fetchNews = async () => {
+  const { data } = await axios.get('https://newsapi.org/v2/everything', {
+    params: {
+      q: 'finance OR crypto',
+      language: 'en',
+      apiKey: NEWS_API_KEY,
+    },
+  });
+
+  // Extract the latest news headline and URL
+  const latestNews = data.articles[getRandomIndex(data.articles)];
+  const newsMessage = `*Latest Finance News:*\n\n${latestNews.title}\n${latestNews.url}`;
+
+  return newsMessage;
+}
+
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+
+// Schedule a daily task to fetch the latest finance news
+schedule.scheduleJob('0 9 * * *', async () => {
+  try {
+    // Fetch finance news from API
+    const newsMessage = await fetchNews();
+
+    // Send news to group
+    bot.sendMessage('YOUR_GROUP_CHAT_ID', newsMessage, { parse_mode: 'Markdown' });
+  } catch (err) {
+    console.error('Failed to fetch finance news:', err);
+  }
+});
+
+// Handle /start command
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, "Hello! I'm Shibtalik. Use /news to get the latest finance news, Use /help to see the list of available commands..");
+});
+
+// Handle /news command
+bot.onText(/\/news/, async (msg) => {
+  try {
+    // Fetch finance news from API
+    const newsMessage = await fetchNews();
+
+    // Send news to user
+    bot.sendMessage(msg.chat.id, newsMessage, { parse_mode: 'Markdown' });
+  } catch (err) {
+    console.error('Failed to fetch finance news:', err);
+    bot.sendMessage(msg.chat.id, 'Failed to fetch finance news.');
+  }
+});
+
+// Handle /alert command
+bot.onText(/\/alert (.+)/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const contractAddress = match[1];
+
+  // Save contract address to database or file
+  // ...
+
+  bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
+});
+
+bot.onText(/\/help/, (msg) => {
+  
+  const helpText = `
+  Available commands:
+  /start - Introduce myself
+  /news - Get the latest finance news
+  /alert - Manage your price alerts
+  /help - User manual
+  `;
+  bot.sendMessage(msg.chat.id, helpText);
+});
+
+
+// Handle custom alerts from group admin
+bot.on('message', async (msg) => {
+
+  console.log('new message: ', msg);
+
+  try {
+    // Check if message is from group chat and sent by group admin
+    if (msg.chat.type === 'group' && msg.from.id === 714295076) {
+      const chatId = msg.chat.id;
+      const alertMessage = msg.text;
+
+      // Send alert message to group members
+      bot.sendMessage(chatId, alertMessage);
+    }
+  } catch (err) {
+    console.error('Failed to handle custom alert:', err);
+  }
+});
+
+
+app.get("/", async (req, res) => res.send("Hello, I'm Shibtalik, a Telegram bot"));
+
+app.listen(port, () => console.log(`Bot listening at http://0.0.0.0:${port}`));
