@@ -35,85 +35,126 @@ const fetchNews = async () => {
   return newsMessage;
 }
 
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+const runTelegramBot = async () => {
 
-// Schedule a daily task to fetch the latest finance news
-schedule.scheduleJob('0 9 * * *', async () => {
-  try {
-    // Fetch finance news from API
-    const newsMessage = await fetchNews();
+  const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
-    // Send news to group
-    bot.sendMessage('YOUR_GROUP_CHAT_ID', newsMessage, { parse_mode: 'Markdown' });
-  } catch (err) {
-    console.error('Failed to fetch finance news:', err);
-  }
-});
+  // Schedule a daily task to fetch the latest finance news
+  const scheduledJob = schedule.scheduleJob('0 9 * * *', async () => {
+    try {
+      // Fetch finance news from API
+      const newsMessage = await fetchNews();
 
-// Handle /start command
-bot.onText(/\/start/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "Hello! I'm Shibtalik. Use /news to get the latest finance news, Use /help to see the list of available commands..");
-});
-
-// Handle /news command
-bot.onText(/\/news/, async (msg) => {
-  try {
-    // Fetch finance news from API
-    const newsMessage = await fetchNews();
-
-    // Send news to user
-    bot.sendMessage(msg.chat.id, newsMessage, { parse_mode: 'Markdown' });
-  } catch (err) {
-    console.error('Failed to fetch finance news:', err);
-    bot.sendMessage(msg.chat.id, 'Failed to fetch finance news.');
-  }
-});
-
-// Handle /alert command
-bot.onText(/\/alert (.+)/, (msg, match) => {
-  const chatId = msg.chat.id;
-  const contractAddress = match[1];
-
-  // Save contract address to database or file
-  // ...
-
-  bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
-});
-
-bot.onText(/\/help/, (msg) => {
-  
-  const helpText = `
-  Available commands:
-  /start - Introduce myself
-  /news - Get the latest finance news
-  /alert - Manage your price alerts
-  /help - User manual
-  `;
-  bot.sendMessage(msg.chat.id, helpText);
-});
-
-
-// Handle custom alerts from group admin
-bot.on('message', async (msg) => {
-
-  console.log('new message: ', msg);
-
-  try {
-    // Check if message is from group chat and sent by group admin
-    if (msg.chat.type === 'group' && msg.from.id === 714295076) {
-      const chatId = msg.chat.id;
-      const alertMessage = msg.text;
-
-      // Send alert message to group members
-      bot.sendMessage(chatId, alertMessage);
+      // Send news to group
+      bot.sendMessage('YOUR_GROUP_CHAT_ID', newsMessage, { parse_mode: 'Markdown' });
+    } catch (err) {
+      console.error('Failed to fetch finance news:', err);
     }
-  } catch (err) {
-    console.error('Failed to handle custom alert:', err);
+  });
+
+  // failsafe
+  try {
+
+    // Handle /start command
+    bot.onText(/\/start/, (msg) => {
+      const chatId = msg.chat.id;
+      bot.sendMessage(chatId, "Hello! I'm Shibtalik. Use /news to get the latest finance news, Use /help to see the list of available commands..");
+    });
+
+    // Handle /news command
+    bot.onText(/\/news/, async (msg) => {
+      try {
+        // Fetch finance news from API
+        const newsMessage = await fetchNews();
+
+        // Send news to user
+        bot.sendMessage(msg.chat.id, newsMessage, { parse_mode: 'Markdown' });
+      } catch (err) {
+        console.error('Failed to fetch finance news:', err);
+        bot.sendMessage(msg.chat.id, 'Failed to fetch finance news.');
+      }
+    });
+
+    // Handle /alert command
+    bot.onText(/\/alert (.+)/, (msg, match) => {
+      const chatId = msg.chat.id;
+      const contractAddress = match[1];
+
+      if (contractAddress) {
+        // Save contract address to database or file
+        // ...
+
+        bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
+
+        return;
+      }
+
+      bot.sendMessage(chatId, `Try again with a valid contract address`);
+
+    });
+
+    bot.onText(/\/help/, (msg) => {
+
+      const helpText = `
+      Available commands:
+      /start - Introduce myself
+      /news - Get the latest finance news
+      /alert - Manage your price alerts
+      /help - User manual
+    `;
+      bot.sendMessage(msg.chat.id, helpText);
+    });
+
+    // Handle custom alerts from group admin
+    bot.on('message', async (msg) => {
+
+      console.log('new message: ', msg);
+
+      try {
+        // Check if message is from group chat and sent by group admin
+        if (msg.chat.type === 'group' && msg.from.id === 714295076) {
+          const chatId = msg.chat.id;
+          const alertMessage = msg.text;
+
+          // Send alert message to group members
+          bot.sendMessage(chatId, alertMessage);
+        }
+      } catch (err) {
+        console.error('Failed to handle custom alert:', err);
+      }
+    });
+
+    // restart the bot every 1 hour
+    setInterval(async () => {
+
+      bot.removeAllListeners();
+      await bot.logOut();
+      await bot.close();
+
+      await runTelegramBot();
+
+    }, 1000 * 60 * 60);
+
+  } catch (error) {
+    // failsafe catch block
+
+    console.log(error);
+
+    scheduledJob.cancel();
+
+    bot.removeAllListeners();
+    await bot.logOut();
+    await bot.close();
+
+    return await runTelegramBot();
+
   }
-});
+
+}
 
 
 app.get("/", async (req, res) => res.send("Hello, I'm Shibtalik, a Telegram bot"));
 
-app.listen(port, () => console.log(`Bot listening at http://0.0.0.0:${port}`));
+app.listen(port, () => {
+  console.log(`Bot listening at http://0.0.0.0:${port}`)
+});
