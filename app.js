@@ -39,6 +39,14 @@ const runTelegramBot = async () => {
 
   const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
+  bot.getUpdates().then((updates) => {
+    updates.forEach((update) => {
+      if (update.message && update.message.chat.type === 'group') {
+        console.log(`Bot added to group ${update.message.chat.title}, chat ID: ${update.message.chat.id}`);
+      }
+    });
+  });
+
   // Schedule a daily task to fetch the latest finance news
   const scheduledJob = schedule.scheduleJob('0 9 * * *', async () => {
     try {
@@ -111,14 +119,27 @@ const runTelegramBot = async () => {
       console.log('new message: ', msg);
 
       try {
-        // Check if message is from group chat and sent by group admin
-        if (msg.chat.type === 'group' && msg.from.id === 714295076) {
-          const chatId = msg.chat.id;
-          const alertMessage = msg.text;
 
+        const chatId = msg.chat.id;
+
+        // // Check if message is from group chat and sent by group admin
+        // if (msg.chat.type === 'group' && msg.from.id === 714295076) {
+        //   const alertMessage = msg.text;
+
+        //   // Send alert message to group members
+        //   bot.sendMessage(chatId, alertMessage);
+        // }
+
+        // Get chat administrators
+        const chatAdministrators = await bot.getChatAdministrators(chatId);
+        // Filter out non-administrators
+        const groupAdmins = chatAdministrators.filter(admin => admin.status === 'creator' || admin.status === 'administrator');
+        // Check if message is from group chat and sent by group admin
+        if (msg.chat.type === 'group' && groupAdmins.some(admin => admin.user.id === msg.from.id)) {
           // Send alert message to group members
-          bot.sendMessage(chatId, alertMessage);
+          bot.sendMessage(chatId, msg.text);
         }
+
       } catch (err) {
         console.error('Failed to handle custom alert:', err);
       }
