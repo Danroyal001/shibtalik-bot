@@ -126,13 +126,11 @@ const runTelegramBot = async () => {
 
     // restart the bot every 1 hour
     setInterval(async () => {
-
+      scheduledJob.cancel();
       bot.removeAllListeners();
       await bot.logOut();
       await bot.close();
-
       await runTelegramBot();
-
     }, 1000 * 60 * 60);
 
   } catch (error) {
@@ -140,13 +138,13 @@ const runTelegramBot = async () => {
 
     console.log(error);
 
-    scheduledJob.cancel();
-
-    bot.removeAllListeners();
-    await bot.logOut();
-    await bot.close();
-
-    return await runTelegramBot();
+    setTimeout(async () => {
+      scheduledJob.cancel();
+      bot.removeAllListeners();
+      await bot.logOut();
+      await bot.close();
+      await runTelegramBot();
+    }, 1000 * 3);
 
   }
 
