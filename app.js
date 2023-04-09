@@ -31,7 +31,7 @@ pgClient.connect(err => {
 });
 
 // Function to save contract address for daily alerts to PostgreSQL database
-async function saveContractAddress(chatId, contractAddress) {
+const saveContractAddress = async (chatId, contractAddress) => {
   const query = {
     text: 'INSERT INTO daily_alerts(chat_id, contract_address) VALUES($1, $2) ON CONFLICT DO NOTHING',
     values: [chatId, contractAddress],
@@ -46,7 +46,7 @@ async function saveContractAddress(chatId, contractAddress) {
 }
 
 // Function to retrieve contract addresses for daily alerts from PostgreSQL database
-async function getContractAddresses(chatId) {
+const getContractAddresses = async (chatId) => {
   const query = {
     text: 'SELECT contract_address FROM daily_alerts WHERE chat_id = $1',
     values: [chatId],
@@ -61,12 +61,10 @@ async function getContractAddresses(chatId) {
   }
 }
 
-
 const getRandomIndex = (arr) => {
   // get random index value
   return Math.floor(Math.random() * arr.length);
 }
-
 
 const fetchNews = async () => {
   const { data } = await axios.get('https://newsapi.org/v2/everything', {
@@ -84,26 +82,37 @@ const fetchNews = async () => {
   return newsMessage;
 }
 
-const runTelegramBot = async () => {
+// Use a cryptocurrency price API to get the current price of the contract.
+const fetchContractPrice = async (address) => {
+  const url = `https://api.coingecko.com/api/v3/coins/ethereum/contract/${address}`;
+  const response = await axios.get(url);
 
+  return response.data.market_data.current_price.usd;
+};
+
+
+const runTelegramBot = async () => {
   const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
-  bot.getUpdates().then((updates) => {
-    updates.forEach((update) => {
-      if (update.message && update.message.chat.type === 'group') {
-        console.log(`Bot added to group ${update.message.chat.title}, chat ID: ${update.message.chat.id}`);
-      }
-    });
+  const updates = await bot.getUpdates();
+  const groupChatIDs = [];
+  updates.forEach((update) => {
+    if (update.message && update.message.chat.type === 'group') {
+      console.log(`Bot added to group ${update.message.chat.title}, chat ID: ${update.message.chat.id}`);
+      groupChatIDs.push(update.message.chat.id);
+    }
   });
 
-  // Schedule a daily task to fetch the latest finance news
+  // Schedule a daily task to fetch the latest finance news, 9AM daill
   const scheduledJob = schedule.scheduleJob('0 9 * * *', async () => {
     try {
       // Fetch finance news from API
       const newsMessage = await fetchNews();
 
-      // Send news to group
-      bot.sendMessage('YOUR_GROUP_CHAT_ID', newsMessage, { parse_mode: 'Markdown' });
+      // Send news to groups
+      groupChatIDs.forEach((groupChatID) => {
+        bot.sendMessage(groupChatID, newsMessage, { parse_mode: 'Markdown' });
+      })
     } catch (err) {
       console.error('Failed to fetch finance news:', err);
     }
@@ -133,15 +142,22 @@ const runTelegramBot = async () => {
     });
 
     // Handle /alert command
-    bot.onText(/\/alert (.+)/, (msg, match) => {
+    bot.onText(/\/alert (.+)/, async (msg, match) => {
       const chatId = msg.chat.id;
       const contractAddress = match[1];
 
       if (contractAddress) {
-        // Save contract address to database or file
-        // ...
 
-        bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
+        try {
+          // Save contract address to database or file
+          await saveContractAddress(contractAddress);
+          const currentPrice = await fetchContractPrice(contractAddress);
+
+          bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
+          bot.sendMessage(chatId, `Current price for ${contractAddress} is ${currentPrice}.`);
+        } catch (error) {
+          console.error(error);
+        }
 
         return;
       }
@@ -221,10 +237,9 @@ const runTelegramBot = async () => {
 }
 
 
-app.get("/", async (req, res) => res.send("Hello, I'm Shibtalik, a Telegram bot"));
+app.get("/", async (_, res) => res.send("Hello, I'm Shibtalik, a Telegram bot"));
 
 app.listen(port, () => {
-
   runTelegramBot();
 
   console.log(`Bot listening at http://0.0.0.0:${port}`)
