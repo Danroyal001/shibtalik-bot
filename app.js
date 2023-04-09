@@ -148,12 +148,13 @@ const runTelegramBot = async () => {
 
       if (contractAddress) {
 
+        bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
+
         try {
           // Save contract address to database or file
           await saveContractAddress(contractAddress);
           const currentPrice = await fetchContractPrice(contractAddress);
 
-          bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
           bot.sendMessage(chatId, `Current price for ${contractAddress} is ${currentPrice}.`);
         } catch (error) {
           console.error(error);
