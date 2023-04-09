@@ -156,5 +156,8 @@ const runTelegramBot = async () => {
 app.get("/", async (req, res) => res.send("Hello, I'm Shibtalik, a Telegram bot"));
 
 app.listen(port, () => {
+
+  runTelegramBot();
+
   console.log(`Bot listening at http://0.0.0.0:${port}`)
 });
