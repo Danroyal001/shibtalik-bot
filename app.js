@@ -3,6 +3,7 @@ const axios = require('axios');
 const schedule = require('node-schedule');
 const TelegramBot = require('node-telegram-bot-api');
 const cors = require('cors');
+const { Client } = require('pg');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -12,6 +13,54 @@ const NEWS_API_KEY = '4d547f2d7ef549c9bb849833e790d744';
 app.use(express.json());
 app.use(express.text());
 app.use(cors());
+
+const pgClient = new Client({
+  connectionString: 'your-postgres-database-url',
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+// Establishing connection to PostgreSQL database
+pgClient.connect(err => {
+  if (err) {
+    console.error('Error connecting to PostgreSQL database: ', err.stack);
+  } else {
+    console.log('Connected to PostgreSQL database');
+  }
+});
+
+// Function to save contract address for daily alerts to PostgreSQL database
+async function saveContractAddress(chatId, contractAddress) {
+  const query = {
+    text: 'INSERT INTO daily_alerts(chat_id, contract_address) VALUES($1, $2) ON CONFLICT DO NOTHING',
+    values: [chatId, contractAddress],
+  };
+
+  try {
+    await pgClient.query(query);
+    console.log(`Contract address ${contractAddress} saved for chat ${chatId}`);
+  } catch (err) {
+    console.error(`Error saving contract address ${contractAddress} for chat ${chatId} to PostgreSQL database: `, err.stack);
+  }
+}
+
+// Function to retrieve contract addresses for daily alerts from PostgreSQL database
+async function getContractAddresses(chatId) {
+  const query = {
+    text: 'SELECT contract_address FROM daily_alerts WHERE chat_id = $1',
+    values: [chatId],
+  };
+
+  try {
+    const result = await pgClient.query(query);
+    return result.rows.map(row => row.contract_address);
+  } catch (err) {
+    console.error(`Error retrieving contract addresses for chat ${chatId} from PostgreSQL database: `, err.stack);
+    return [];
+  }
+}
+
 
 const getRandomIndex = (arr) => {
   // get random index value
