@@ -87,7 +87,7 @@ const fetchContractPrice = async (address) => {
   const url = `https://api.coingecko.com/api/v3/coins/ethereum/contract/${address}`;
   const response = await axios.get(url);
 
-  if (data.error) {
+  if (response.data.error) {
     throw new Error(data.error);
   }
 
