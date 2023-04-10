@@ -96,15 +96,14 @@ const fetchContractPrice = async (address) => {
     Symbol: ${String(response.data.symbol).toUpperCase()}
     Price: $${response.data.market_data.current_price.usd}
     Total volume: $${response.data.market_data.total_volume.usd}
-    24h high: $${response.data.market_data.low_24.usd}
-    24h low: $${response.data.market_data.high_24.usd}
+    24h high: $${response.data.market_data.low_24h.usd}
+    24h low: $${response.data.market_data.high_24h.usd}
     24h price change: $${response.data.market_data.price_change_24h.usd} : $${response.data.market_data.price_change_24h_in_currency.usd}
     Total supply: $${response.data.market_data.total_supply}
     Max supply: $${response.data.market_data.max_supply}
     CoinGecko rank: $${response.data.coingecko_rank}
   `;
 
-  // return response.data.market_data.current_price.usd;
   return str;
 };
 
