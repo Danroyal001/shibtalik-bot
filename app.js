@@ -48,7 +48,7 @@ const saveContractAddress = async (chatId, contractAddress) => {
 // Function to retrieve contract addresses for daily alerts from PostgreSQL database
 const getContractAddresses = async (chatId) => {
   const query = {
-    text: 'SELECT contract_address FROM daily_alerts WHERE chat_id = $1',
+    text: 'SELECT contract_address, chat_id FROM daily_alerts WHERE chat_id = $1',
     values: [chatId],
   };
 
@@ -87,6 +87,10 @@ const fetchContractPrice = async (address) => {
   const url = `https://api.coingecko.com/api/v3/coins/ethereum/contract/${address}`;
   const response = await axios.get(url);
 
+  if (data.error) {
+    throw new Error(data.error);
+  }
+
   return response.data.market_data.current_price.usd;
 };
 
@@ -110,9 +114,21 @@ const runTelegramBot = async () => {
       const newsMessage = await fetchNews();
 
       // Send news to groups
-      groupChatIDs.forEach((groupChatID) => {
+      groupChatIDs.forEach(async (groupChatID) => {
         bot.sendMessage(groupChatID, newsMessage, { parse_mode: 'Markdown' });
-      })
+
+        const savedAddresses = await getContractAddresses(groupChatID);
+        savedAddresses.forEach(async (address) => {
+          try {
+            const currentPrice = await fetchContractPrice(address.contract_address);
+            bot.sendMessage(chatId, `Current price for ${address.contract_address} is ${currentPrice}.`);
+          } catch (error) {
+            console.log(error);
+            bot.sendMessage(chatId, `Error while retrieving price for ${address.contract_address}, ${error.message}.`);
+          }
+        });
+      });
+
     } catch (err) {
       console.error('Failed to fetch finance news:', err);
     }
@@ -157,7 +173,8 @@ const runTelegramBot = async () => {
 
           bot.sendMessage(chatId, `Current price for ${contractAddress} is ${currentPrice}.`);
         } catch (error) {
-          console.error(error);
+          console.error(error.message);
+          bot.sendMessage(chatId, `Error while retrieving price for ${contractAddress}, ${error.message}.`);
         }
 
         return;
@@ -211,20 +228,21 @@ const runTelegramBot = async () => {
       }
     });
 
-    // restart the bot every 1 hour
+    // restart the bot every 10 minuts
     setInterval(async () => {
       scheduledJob.cancel();
       bot.removeAllListeners();
       await bot.logOut();
       await bot.close();
       await runTelegramBot();
-    }, 1000 * 60 * 60);
+    }, 1000 * 60 * 10);
 
   } catch (error) {
     // failsafe catch block
 
     console.log(error);
 
+    // relaunch bot in 3 seconds
     setTimeout(async () => {
       scheduledJob.cancel();
       bot.removeAllListeners();
