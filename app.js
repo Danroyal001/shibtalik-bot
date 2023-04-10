@@ -15,7 +15,7 @@ app.use(express.text());
 app.use(cors());
 
 const pgClient = new Client({
-  connectionString: 'your-postgres-database-url',
+  connectionString: 'postgres://shibtalik_postgres:uVwWIbH5UKw0nbHBuKFUlqSdR5l6Mq6w@dpg-cgpsa2u4dad9donh89mg-a/shibtalik_postgres',
   ssl: {
     rejectUnauthorized: false
   }
