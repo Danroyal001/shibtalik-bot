@@ -92,16 +92,16 @@ const fetchContractPrice = async (address) => {
   }
 
   const str = `
-    Network: ${String(response.data.asset_platform_id).toUpperCase()}
-    Symbol: ${String(response.data.symbol).toUpperCase()}
-    Price: $${response.data.market_data.current_price.usd}
-    Total volume: $${response.data.market_data.total_volume.usd}
-    24h high: $${response.data.market_data.low_24h.usd}
-    24h low: $${response.data.market_data.high_24h.usd}
-    24h price change: ${response.data.market_data.price_change_24h} : $${response.data.market_data.price_change_24h_in_currency.usd}
-    Total supply: $${response.data.market_data.total_supply}
-    Max supply: $${response.data.market_data.max_supply}
-    CoinGecko rank: $${response.data.coingecko_rank}
+    *Network*: ${String(response.data.asset_platform_id).toUpperCase()}
+    *Symbol*: ${String(response.data.symbol).toUpperCase()}
+    *Price*: $${response.data.market_data.current_price.usd}
+    *Total volume*: $${response.data.market_data.total_volume.usd}
+    *24h high*: $${response.data.market_data.low_24h.usd}
+    *24h low*: $${response.data.market_data.high_24h.usd}
+    *24h price change*: ${response.data.market_data.price_change_24h} : $${response.data.market_data.price_change_24h_in_currency.usd}
+    *Total supply*: $${response.data.market_data.total_supply}
+    *Max supply*: $${response.data.market_data.max_supply}
+    *CoinGecko rank*: $${response.data.coingecko_rank}
   `;
 
   return str;
@@ -134,7 +134,13 @@ const runTelegramBot = async () => {
         savedAddresses.forEach(async (address) => {
           try {
             const currentPrice = await fetchContractPrice(address.contract_address);
-            bot.sendMessage(chatId, `Current price for ${address.contract_address} is ${currentPrice}.`, { parse_mode: 'Markdown' });
+            bot.sendMessage(
+              chatId, `
+            *Current price for ${contractAddress}*:
+            ${currentPrice}.
+            `,
+              { parse_mode: 'Markdown' }
+            );
           } catch (error) {
             console.log(error);
             bot.sendMessage(chatId, `Error while retrieving price for ${address.contract_address}, ${error.message}.`);
@@ -181,7 +187,14 @@ const runTelegramBot = async () => {
 
         try {
           const currentPrice = await fetchContractPrice(contractAddress);
-          bot.sendMessage(chatId, `Current price for ${contractAddress} is ${currentPrice}.`, { parse_mode: 'Markdown' });
+          bot.sendMessage(
+            chatId,
+            `
+            *Current price for ${contractAddress}*:
+            ${currentPrice}.
+            `,
+            { parse_mode: 'Markdown' }
+          );
 
           // Save contract address to database or file
           await saveContractAddress(chatId, contractAddress);
