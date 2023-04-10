@@ -3,7 +3,7 @@ const axios = require('axios');
 const schedule = require('node-schedule');
 const TelegramBot = require('node-telegram-bot-api');
 const cors = require('cors');
-const { Client } = require('pg');
+// const { Client } = require('pg');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -14,12 +14,12 @@ app.use(express.json());
 app.use(express.text());
 app.use(cors());
 
-const pgClient = new Client({
-  connectionString: 'postgres://shibtalik_postgres:uVwWIbH5UKw0nbHBuKFUlqSdR5l6Mq6w@dpg-cgpsa2u4dad9donh89mg-a/shibtalik_postgres',
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+// const pgClient = new Client({
+//   connectionString: 'postgres://shibtalik_postgres:uVwWIbH5UKw0nbHBuKFUlqSdR5l6Mq6w@dpg-cgpsa2u4dad9donh89mg-a/shibtalik_postgres',
+//   ssl: {
+//     rejectUnauthorized: false
+//   }
+// });
 
 // Establishing connection to PostgreSQL database
 // pgClient.connect(err => {
@@ -112,173 +112,189 @@ const fetchContractPrice = async (address) => {
 
 
 const runTelegramBot = async () => {
-  const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
-  const updates = await bot.getUpdates();
-  const groupChatIDs = [];
-  updates.forEach((update) => {
-    if (update.message && update.message.chat.type === 'group') {
-      console.log(`Bot added to group ${update.message.chat.title}, chat ID: ${update.message.chat.id}`);
-      groupChatIDs.push(update.message.chat.id);
-    }
-  });
+  try {
+    // parent failsafe
 
-  // Schedule a daily task to fetch the latest finance news, 9AM daill
-  const scheduledJob = schedule.scheduleJob('0 9 * * *', async () => {
+    console.log('Before initializing bot');
+    const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+    console.log('After initializing bot');
+
+    const updates = await bot.getUpdates();
+    const groupChatIDs = [];
+    updates.forEach((update) => {
+      if (update.message && update.message.chat.type === 'group') {
+        console.log(`Bot added to group ${update.message.chat.title}, chat ID: ${update.message.chat.id}`);
+        groupChatIDs.push(update.message.chat.id);
+      }
+    });
+
+    // Schedule a daily task to fetch the latest finance news, 9AM daill
+    const scheduledJob = schedule.scheduleJob('0 9 * * *', async () => {
+      try {
+        // Fetch finance news from API
+        const newsMessage = await fetchNews();
+
+        // Send news to groups
+        groupChatIDs.forEach(async (groupChatID) => {
+          bot.sendMessage(groupChatID, newsMessage, { parse_mode: 'Markdown' });
+
+          const savedAddresses = await getContractAddresses(groupChatID);
+          savedAddresses.forEach(async (address) => {
+            try {
+              const currentPrice = await fetchContractPrice(address.contract_address);
+              bot.sendMessage(
+                chatId, `
+            *Current price for ${contractAddress}*:
+            ${currentPrice}.
+            `,
+                { parse_mode: 'Markdown' }
+              );
+            } catch (error) {
+              console.log(error);
+              bot.sendMessage(chatId, `Error while retrieving price for ${address.contract_address}, ${error.message}.`);
+            }
+          });
+        });
+
+      } catch (err) {
+        console.error('Failed to run schedule:', err);
+      }
+    });
+
+    // failsafe
     try {
-      // Fetch finance news from API
-      const newsMessage = await fetchNews();
 
-      // Send news to groups
-      groupChatIDs.forEach(async (groupChatID) => {
-        bot.sendMessage(groupChatID, newsMessage, { parse_mode: 'Markdown' });
+      // Handle /start command
+      bot.onText(/\/start/, (msg) => {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, "Hello! I'm Shibtalik. Use /news to get the latest finance news, Use /help to see the list of available commands..");
+      });
 
-        const savedAddresses = await getContractAddresses(groupChatID);
-        savedAddresses.forEach(async (address) => {
+      // Handle /news command
+      bot.onText(/\/news/, async (msg) => {
+        try {
+          // Fetch finance news from API
+          const newsMessage = await fetchNews();
+
+          // Send news to user
+          bot.sendMessage(msg.chat.id, newsMessage, { parse_mode: 'Markdown' });
+        } catch (err) {
+          console.error('Failed to fetch finance news:', err);
+          bot.sendMessage(msg.chat.id, 'Failed to fetch finance news.');
+        }
+      });
+
+      // Handle /alert command
+      bot.onText(/\/alert (.+)/, async (msg, match) => {
+        const chatId = msg.chat.id;
+        const contractAddress = match[1];
+
+        if (contractAddress) {
+
+          bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
+
           try {
-            const currentPrice = await fetchContractPrice(address.contract_address);
+            const currentPrice = await fetchContractPrice(contractAddress);
             bot.sendMessage(
-              chatId, `
+              chatId,
+              `
             *Current price for ${contractAddress}*:
             ${currentPrice}.
             `,
               { parse_mode: 'Markdown' }
             );
+
+            // Save contract address to database or file
+            await saveContractAddress(chatId, contractAddress);
           } catch (error) {
-            console.log(error);
-            bot.sendMessage(chatId, `Error while retrieving price for ${address.contract_address}, ${error.message}.`);
+            console.error(error.message);
+            bot.sendMessage(chatId, `Error while retrieving price for ${contractAddress}, ${error.message}.`);
           }
-        });
-      });
 
-    } catch (err) {
-      console.error('Failed to fetch finance news:', err);
-    }
-  });
-
-  // failsafe
-  try {
-
-    // Handle /start command
-    bot.onText(/\/start/, (msg) => {
-      const chatId = msg.chat.id;
-      bot.sendMessage(chatId, "Hello! I'm Shibtalik. Use /news to get the latest finance news, Use /help to see the list of available commands..");
-    });
-
-    // Handle /news command
-    bot.onText(/\/news/, async (msg) => {
-      try {
-        // Fetch finance news from API
-        const newsMessage = await fetchNews();
-
-        // Send news to user
-        bot.sendMessage(msg.chat.id, newsMessage, { parse_mode: 'Markdown' });
-      } catch (err) {
-        console.error('Failed to fetch finance news:', err);
-        bot.sendMessage(msg.chat.id, 'Failed to fetch finance news.');
-      }
-    });
-
-    // Handle /alert command
-    bot.onText(/\/alert (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id;
-      const contractAddress = match[1];
-
-      if (contractAddress) {
-
-        bot.sendMessage(chatId, `You will now receive price alerts for ${contractAddress}.`);
-
-        try {
-          const currentPrice = await fetchContractPrice(contractAddress);
-          bot.sendMessage(
-            chatId,
-            `
-            *Current price for ${contractAddress}*:
-            ${currentPrice}.
-            `,
-            { parse_mode: 'Markdown' }
-          );
-
-          // Save contract address to database or file
-          await saveContractAddress(chatId, contractAddress);
-        } catch (error) {
-          console.error(error.message);
-          bot.sendMessage(chatId, `Error while retrieving price for ${contractAddress}, ${error.message}.`);
+          return;
         }
 
-        return;
-      }
+        bot.sendMessage(chatId, `Try again with a valid contract address`);
 
-      bot.sendMessage(chatId, `Try again with a valid contract address`);
+      });
 
-    });
+      bot.onText(/\/help/, (msg) => {
 
-    bot.onText(/\/help/, (msg) => {
-
-      const helpText = `
+        const helpText = `
       Available commands:
       /start - Introduce myself
       /news - Get the latest finance news
       /alert - Manage your price alerts
       /help - User manual
     `;
-      bot.sendMessage(msg.chat.id, helpText);
-    });
+        bot.sendMessage(msg.chat.id, helpText);
+      });
 
-    // Handle custom alerts from group admin
-    bot.on('message', async (msg) => {
-      // console.log('new message: ', msg);
+      // Handle custom alerts from group admin
+      bot.on('message', async (msg) => {
 
-      try {
+        console.log('new message: ', msg);
 
-        const chatId = msg.chat.id;
+        try {
 
-        // // Check if message is from group chat and sent by group admin
-        // if (msg.chat.type === 'group' && msg.from.id === 714295076) {
-        //   const alertMessage = msg.text;
+          const chatId = msg.chat.id;
 
-        //   // Send alert message to group members
-        //   bot.sendMessage(chatId, alertMessage);
-        // }
+          // // Check if message is from group chat and sent by group admin
+          // if (msg.chat.type === 'group' && msg.from.id === 714295076) {
+          //   const alertMessage = msg.text;
 
-        // Get chat administrators
-        const chatAdministrators = await bot.getChatAdministrators(chatId);
-        // Filter out non-administrators
-        const groupAdmins = chatAdministrators.filter(admin => admin.status === 'creator' || admin.status === 'administrator');
-        // Check if message is from group chat and sent by group admin
-        if (msg.chat.type === 'group' && groupAdmins.some(admin => admin.user.id === msg.from.id)) {
-          // Send alert message to group members
-          bot.sendMessage(chatId, msg.text);
+          //   // Send alert message to group members
+          //   bot.sendMessage(chatId, alertMessage);
+          // }
+
+          // Get chat administrators
+          const chatAdministrators = await bot.getChatAdministrators(chatId);
+          // Filter out non-administrators
+          const groupAdmins = chatAdministrators.filter(admin => admin.status === 'creator' || admin.status === 'administrator');
+          // Check if message is from group chat and sent by group admin
+          if (msg.chat.type === 'group' && groupAdmins.some(admin => admin.user.id === msg.from.id)) {
+            // Send alert message to group members
+            bot.sendMessage(chatId, msg.text);
+          }
+
+        } catch (err) {
+          console.error('Failed to handle custom alert:', err);
         }
+      });
 
-      } catch (err) {
-        console.error('Failed to handle custom alert:', err);
-      }
-    });
+      // restart the bot every 10 minuts
+      setInterval(async () => {
+        scheduledJob.cancel();
+        bot.removeAllListeners();
+        await bot.logOut();
+        await bot.close();
+        await runTelegramBot();
+      }, 1000 * 60 * 10);
 
-    // restart the bot every 10 minuts
-    setInterval(async () => {
-      scheduledJob.cancel();
-      bot.removeAllListeners();
-      await bot.logOut();
-      await bot.close();
-      await runTelegramBot();
-    }, 1000 * 60 * 10);
+    } catch (error) {
+      // failsafe catch block
 
+      console.log(error);
+
+      // relaunch bot in 3 seconds
+      setTimeout(async () => {
+        scheduledJob.cancel();
+        bot.removeAllListeners();
+        await bot.logOut();
+        await bot.close();
+        await runTelegramBot();
+      }, 1000 * 3);
+
+    }
   } catch (error) {
-    // failsafe catch block
+    // parent failsafe catch block
 
-    console.log(error);
+    console.log('Fatal crash occurred');
 
-    // relaunch bot in 3 seconds
-    setTimeout(async () => {
-      scheduledJob.cancel();
-      bot.removeAllListeners();
-      await bot.logOut();
-      await bot.close();
-      await runTelegramBot();
+    return setTimeout(() => {
+      return runTelegramBot();
     }, 1000 * 3);
-
   }
 
 }
