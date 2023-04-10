@@ -22,43 +22,45 @@ const pgClient = new Client({
 });
 
 // Establishing connection to PostgreSQL database
-pgClient.connect(err => {
-  if (err) {
-    console.error('Error connecting to PostgreSQL database: ', err.stack);
-  } else {
-    console.log('Connected to PostgreSQL database');
-  }
-});
+// pgClient.connect(err => {
+//   if (err) {
+//     console.error('Error connecting to PostgreSQL database: ', err.stack);
+//   } else {
+//     console.log('Connected to PostgreSQL database');
+//   }
+// });
 
 // Function to save contract address for daily alerts to PostgreSQL database
 const saveContractAddress = async (chatId, contractAddress) => {
-  const query = {
-    text: 'INSERT INTO daily_alerts(chat_id, contract_address) VALUES($1, $2) ON CONFLICT DO NOTHING',
-    values: [chatId, contractAddress],
-  };
+  // const query = {
+  //   text: 'INSERT INTO daily_alerts(chat_id, contract_address) VALUES($1, $2) ON CONFLICT DO NOTHING',
+  //   values: [chatId, contractAddress],
+  // };
 
-  try {
-    await pgClient.query(query);
-    console.log(`Contract address ${contractAddress} saved for chat ${chatId}`);
-  } catch (err) {
-    console.error(`Error saving contract address ${contractAddress} for chat ${chatId} to PostgreSQL database: `, err.stack);
-  }
+  // try {
+  //   await pgClient.query(query);
+  //   console.log(`Contract address ${contractAddress} saved for chat ${chatId}`);
+  // } catch (err) {
+  //   console.error(`Error saving contract address ${contractAddress} for chat ${chatId} to PostgreSQL database: `, err.stack);
+  // }
 }
 
 // Function to retrieve contract addresses for daily alerts from PostgreSQL database
 const getContractAddresses = async (chatId) => {
-  const query = {
-    text: 'SELECT contract_address, chat_id FROM daily_alerts WHERE chat_id = $1',
-    values: [chatId],
-  };
+  // const query = {
+  //   text: 'SELECT contract_address, chat_id FROM daily_alerts WHERE chat_id = $1',
+  //   values: [chatId],
+  // };
 
-  try {
-    const result = await pgClient.query(query);
-    return result.rows.map(row => row.contract_address);
-  } catch (err) {
-    console.error(`Error retrieving contract addresses for chat ${chatId} from PostgreSQL database: `, err.stack);
-    return [];
-  }
+  // try {
+  //   const result = await pgClient.query(query);
+  //   return result.rows.map(row => row.contract_address);
+  // } catch (err) {
+  //   console.error(`Error retrieving contract addresses for chat ${chatId} from PostgreSQL database: `, err.stack);
+  //   return [];
+  // }
+
+  return [];
 }
 
 const getRandomIndex = (arr) => {
@@ -92,8 +94,9 @@ const fetchContractPrice = async (address) => {
   }
 
   const str = `
-    *Network*: ${String(response.data.asset_platform_id).toUpperCase()}
+    *Name*: ${String(response.data.name)}
     *Symbol*: ${String(response.data.symbol).toUpperCase()}
+    *Network*: ${String(response.data.asset_platform_id).toUpperCase()}
     *Price*: $${response.data.market_data.current_price.usd}
     *Total volume*: $${response.data.market_data.total_volume.usd}
     *24h high*: $${response.data.market_data.low_24h.usd}
@@ -224,8 +227,7 @@ const runTelegramBot = async () => {
 
     // Handle custom alerts from group admin
     bot.on('message', async (msg) => {
-
-      console.log('new message: ', msg);
+      // console.log('new message: ', msg);
 
       try {
 
