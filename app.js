@@ -267,7 +267,7 @@ const runTelegramBot = async () => {
       setInterval(async () => {
         scheduledJob.cancel();
         bot.removeAllListeners();
-        await bot.logOut();
+        // await bot.logOut();
         await bot.close();
         await runTelegramBot();
       }, 1000 * 60 * 10);
@@ -281,7 +281,7 @@ const runTelegramBot = async () => {
       setTimeout(async () => {
         scheduledJob.cancel();
         bot.removeAllListeners();
-        await bot.logOut();
+        // await bot.logOut();
         await bot.close();
         await runTelegramBot();
       }, 1000 * 3);
