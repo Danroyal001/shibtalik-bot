@@ -41,6 +41,7 @@
     "Telegram"
   ],
   "devDependencies": {
+    "@types/axios": "^0.14.0",
     "@types/pg": "^8.6.6",
     "nodemon": "^2.0.22"
   }

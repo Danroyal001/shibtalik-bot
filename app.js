@@ -88,7 +88,7 @@ const fetchContractPrice = async (address) => {
   const response = await axios.get(url);
 
   if (response.data.error) {
-    throw new Error(data.error);
+    throw new Error(response.data.error);
   }
 
   return response.data.market_data.current_price.usd;
