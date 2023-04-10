@@ -101,7 +101,7 @@ const fetchContractPrice = async (address) => {
     *24h price change*: ${response.data.market_data.price_change_24h} : $${response.data.market_data.price_change_24h_in_currency.usd}
     *Total supply*: $${response.data.market_data.total_supply}
     *Max supply*: $${response.data.market_data.max_supply}
-    *CoinGecko rank*: $${response.data.coingecko_rank}
+    *CoinGecko rank*: ${response.data.coingecko_rank}
   `;
 
   return str;
