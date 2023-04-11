@@ -125,14 +125,19 @@ const runTelegramBot = async () => {
     bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
     console.log('After initializing bot');
 
-    const updates = await bot.getUpdates();
+    // const updates = await bot.getUpdates({
+    //   limit: 1,
+    // });
+    /**
+     * List of IDs fo rgroups teh bot has been added to 
+     */
     const groupChatIDs = [];
-    updates.forEach((update) => {
-      if (update.message && update.message.chat.type === 'group') {
-        console.log(`Bot added to group ${update.message.chat.title}, chat ID: ${update.message.chat.id}`);
-        groupChatIDs.push(update.message.chat.id);
-      }
-    });
+    // updates.forEach((update) => {
+    //   if (update.message && update.message.chat.type === 'group') {
+    //     console.log(`Bot added to group ${update.message.chat.title}, chat ID: ${update.message.chat.id}`);
+    //     groupChatIDs.push(update.message.chat.id);
+    //   }
+    // });
 
     // Schedule a daily task to fetch the latest finance news, 9AM daill
     const scheduledJob = schedule.scheduleJob('0 9 * * *', async () => {
@@ -261,6 +266,11 @@ const runTelegramBot = async () => {
           if (msg.chat.type === 'group' && groupAdmins.some(admin => admin.user.id === msg.from.id)) {
             // Send alert message to group members
             bot.sendMessage(chatId, msg.text);
+          }
+
+          if (msg && msg.chat.type === 'group') {
+            console.log(`Bot added to group ${msg.chat.title}, chat ID: ${msg.chat.id}`);
+            groupChatIDs.push(msg.chat.id);
           }
 
         } catch (err) {
