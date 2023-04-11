@@ -7,7 +7,7 @@ const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT || 3001;
-const TELEGRAM_BOT_TOKEN = '6202001281:AAEVZVRp7ZYblxtcFjxom1ADgJ6ETJmSjAc';
+const TELEGRAM_BOT_TOKEN = '6202001281:AAGL3MpPMgZeQ_7vO9BxlAvm6LXIgfmBJvE';
 const NEWS_API_KEY = '4d547f2d7ef549c9bb849833e790d744';
 
 app.use(express.json());
@@ -110,6 +110,11 @@ const fetchContractPrice = async (address) => {
   return str;
 };
 
+/**
+ * @type {TelegramBot?} TelegramBot?
+ */
+let bot;
+
 
 const runTelegramBot = async () => {
 
@@ -117,7 +122,7 @@ const runTelegramBot = async () => {
     // parent failsafe
 
     console.log('Before initializing bot');
-    const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+    bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
     console.log('After initializing bot');
 
     const updates = await bot.getUpdates();
@@ -267,9 +272,9 @@ const runTelegramBot = async () => {
       setInterval(async () => {
         scheduledJob.cancel();
         bot.removeAllListeners();
-        // await bot.logOut();
+        await bot.stopPolling({ cancel: true, reason: 'failsafe' });
         await bot.close();
-        await runTelegramBot();
+        return await runTelegramBot();
       }, 1000 * 60 * 10);
 
     } catch (error) {
@@ -281,9 +286,9 @@ const runTelegramBot = async () => {
       setTimeout(async () => {
         scheduledJob.cancel();
         bot.removeAllListeners();
-        // await bot.logOut();
+        await bot.stopPolling({ cancel: true, reason: 'failsafe' });
         await bot.close();
-        await runTelegramBot();
+        return await runTelegramBot();
       }, 1000 * 3);
 
     }
