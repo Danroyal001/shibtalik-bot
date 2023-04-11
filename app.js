@@ -7,7 +7,7 @@ const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT || 3001;
-const TELEGRAM_BOT_TOKEN = '6202001281:AAEkc3Zo2yRauBgJm6QlS-HDhnbnFafZszI';
+const TELEGRAM_BOT_TOKEN = '6202001281:AAEVZVRp7ZYblxtcFjxom1ADgJ6ETJmSjAc';
 const NEWS_API_KEY = '4d547f2d7ef549c9bb849833e790d744';
 
 app.use(express.json());
