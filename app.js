@@ -125,19 +125,10 @@ const runTelegramBot = async () => {
     bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
     console.log('After initializing bot');
 
-    // const updates = await bot.getUpdates({
-    //   limit: 1,
-    // });
     /**
      * List of IDs fo rgroups teh bot has been added to 
      */
     const groupChatIDs = [];
-    // updates.forEach((update) => {
-    //   if (update.message && update.message.chat.type === 'group') {
-    //     console.log(`Bot added to group ${update.message.chat.title}, chat ID: ${update.message.chat.id}`);
-    //     groupChatIDs.push(update.message.chat.id);
-    //   }
-    // });
 
     // Schedule a daily task to fetch the latest finance news, 9AM daill
     const scheduledJob = schedule.scheduleJob('0 9 * * *', async () => {
@@ -161,7 +152,7 @@ const runTelegramBot = async () => {
                 { parse_mode: 'Markdown' }
               );
             } catch (error) {
-              console.log(error);
+              console.error(error);
               bot.sendMessage(chatId, `Error while retrieving price for ${address.contract_address}, ${error.message}.`);
             }
           });
@@ -244,8 +235,6 @@ const runTelegramBot = async () => {
       // Handle custom alerts from group admin
       bot.on('message', async (msg) => {
 
-        console.log('new message: ', msg);
-
         try {
 
           const chatId = msg.chat.id;
@@ -258,6 +247,11 @@ const runTelegramBot = async () => {
           //   bot.sendMessage(chatId, alertMessage);
           // }
 
+          if (msg && msg.chat.type === 'group') {
+            console.log(`Bot added to group ${msg.chat.title}, chat ID: ${msg.chat.id}`);
+            groupChatIDs.push(msg.chat.id);
+          }
+
           // Get chat administrators
           const chatAdministrators = await bot.getChatAdministrators(chatId);
           // Filter out non-administrators
@@ -266,11 +260,6 @@ const runTelegramBot = async () => {
           if (msg.chat.type === 'group' && groupAdmins.some(admin => admin.user.id === msg.from.id)) {
             // Send alert message to group members
             bot.sendMessage(chatId, msg.text);
-          }
-
-          if (msg && msg.chat.type === 'group') {
-            console.log(`Bot added to group ${msg.chat.title}, chat ID: ${msg.chat.id}`);
-            groupChatIDs.push(msg.chat.id);
           }
 
         } catch (err) {
@@ -290,7 +279,7 @@ const runTelegramBot = async () => {
     } catch (error) {
       // failsafe catch block
 
-      console.log(error);
+      console.error(error);
 
       // relaunch bot in 3 seconds
       setTimeout(async () => {
@@ -305,7 +294,7 @@ const runTelegramBot = async () => {
   } catch (error) {
     // parent failsafe catch block
 
-    console.log('Fatal crash occurred');
+    console.error('Fatal crash occurred');
 
     return setTimeout(() => {
       return runTelegramBot();
